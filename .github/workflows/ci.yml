@@ -6,7 +6,6 @@ on:
       package_path:
         description: 'Path to package directory'
         required: true
-        default: 'Part_2_Variables_Conditions_Loops'
       run_ty:
         description: 'Run ty type checker'
         required: false
@@ -17,10 +16,6 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
 
 jobs:
   lint:
@@ -40,10 +35,10 @@ jobs:
         run: uv sync --group lint --group test
 
       - name: Run ruff check
-        run: uv run ruff check ${{ github.event.inputs.package_path || 'Part 1 - Variables, Conditions, Loops' }}
+        run: uv run ruff check "${{ github.event.inputs.package_path }}"
 
       - name: Run wemake-python-styleguide
-        run: uv run flake8 ${{ github.event.inputs.package_path || 'Part 1 - Variables, Conditions, Loops' }}
+        run: uv run flake8 "${{ github.event.inputs.package_path }}"
 
   typecheck:
     runs-on: ubuntu-latest
@@ -62,15 +57,15 @@ jobs:
         run: uv sync --group lint --group test
 
       - name: Run mypy
-        run: uv run mypy ${{ github.event.inputs.package_path || 'Part 1 - Variables, Conditions, Loops' }}
+        run: uv run mypy "${{ github.event.inputs.package_path }}"
 
       - name: Run ty (optional)
         if: ${{ github.event.inputs.run_ty == 'true' }}
-        run: uv run ty check ${{ github.event.inputs.package_path || 'Part 1 - Variables, Conditions, Loops' }}
+        run: uv run ty check "${{ github.event.inputs.package_path }}"
 
       - name: Run pyrefly (optional)
         if: ${{ github.event.inputs.run_pyrefly == 'true' }}
-        run: uv run pyrefly check ${{ github.event.inputs.package_path || 'Part 1 - Variables, Conditions, Loops' }}
+        run: uv run pyrefly check "${{ github.event.inputs.package_path }}"
 
   test:
     runs-on: ubuntu-latest
@@ -89,4 +84,4 @@ jobs:
         run: uv sync --group lint --group test
 
       - name: Run pytest
-        run: uv run pytest ${{ github.event.inputs.package_path || 'Part 1 - Variables, Conditions, Loops' }}/tests -v
+        run: uv run pytest "${{ github.event.inputs.package_path }}/tests" -v
