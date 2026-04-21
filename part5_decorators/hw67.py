@@ -9,10 +9,8 @@ INVALID_RECOVERY_TIME = "Breaker recovery time must be positive integer!"
 VALIDATIONS_FAILED = "Invalid decorator args."
 TOO_MUCH = "Too much requests, just wait."
 
-
 P = ParamSpec("P")
 R_co = TypeVar("R_co", covariant=True)
-
 
 class CallableWithMeta(Protocol[P, R_co]):
     __name__: str
@@ -20,13 +18,11 @@ class CallableWithMeta(Protocol[P, R_co]):
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co: ...
 
-
 class BreakerError(Exception):
     def __init__(self, func_name: str, block_time: datetime.datetime):
         super().__init__(TOO_MUCH)
         self.func_name = func_name
         self.block_time = block_time
-
 
 class CircuitBreaker:
     def __init__(
@@ -78,9 +74,7 @@ class CircuitBreaker:
 
         return wrapper
 
-
 circuit_breaker = CircuitBreaker(5, 30, Exception)
-
 
 def get_comments(post_id: int) -> Any:
     """
@@ -94,7 +88,6 @@ def get_comments(post_id: int) -> Any:
     """
     response = urlopen(f"https://jsonplaceholder.typicode.com/comments?postId={post_id}")
     return json.loads(response.read())
-
 
 if __name__ == "__main__":
     comments = get_comments(1)
