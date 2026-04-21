@@ -75,17 +75,20 @@ class CircuitBreaker:
             errors.append(ValueError(INVALID_RECOVERY_TIME))
 
     def _check_triggers(self, triggers: Any, errors: list[Exception]) -> None:
-        is_valid = True
         if isinstance(triggers, tuple):
-            for trigger in triggers:
-                if not (isinstance(trigger, type) and issubclass(trigger, Exception)):
-                    is_valid = False
-                    break
-        elif not (isinstance(triggers, type) and issubclass(triggers, Exception)):
-            is_valid = False
+            if not self._is_valid_tuple(triggers):
+                errors.append(TypeError(INVALID_TRIGGERS_ERR))
+            return
 
-        if not is_valid:
+        is_type = isinstance(triggers, type)
+        if not (is_type and issubclass(triggers, Exception)):
             errors.append(TypeError(INVALID_TRIGGERS_ERR))
+
+    def _is_valid_tuple(self, triggers: tuple[Any, ...]) -> bool:
+        for trigger in triggers:
+            if not (isinstance(trigger, type) and issubclass(trigger, Exception)):
+                return False
+        return True
 
     def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
