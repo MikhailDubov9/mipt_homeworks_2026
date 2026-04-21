@@ -6,6 +6,7 @@ from urllib.request import urlopen
 
 INVALID_CRITICAL_COUNT = "Breaker count must be positive integer!"
 INVALID_RECOVERY_TIME = "Breaker recovery time must be positive integer!"
+INVALID_TRIGGERS_ERR = "triggers_on must be Exception type or tuple of them!"
 VALIDATIONS_FAILED = "Invalid decorator args."
 TOO_MUCH = "Too much requests, just wait."
 
@@ -34,12 +35,12 @@ class CircuitBreaker:
         time_to_recover: int = 30,
         triggers_on: type[Exception] | tuple[type[Exception], ...] = Exception,
     ):
-        errors = []
+        errors: list[Exception] = []
         if not isinstance(critical_count, int) or critical_count <= 0:
             errors.append(ValueError(INVALID_CRITICAL_COUNT))
         if not isinstance(time_to_recover, int) or time_to_recover <= 0:
             errors.append(ValueError(INVALID_RECOVERY_TIME))
-        
+
         if isinstance(triggers_on, tuple):
             if not all(isinstance(t, type) and issubclass(t, Exception) for t in triggers_on):
                 errors.append(TypeError(INVALID_TRIGGERS_ERR))
