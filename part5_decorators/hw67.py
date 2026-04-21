@@ -57,7 +57,8 @@ class CircuitBreaker:
                 recovery_delta = datetime.timedelta(seconds=self.time_to_recover)
                 if now < self.block_time + recovery_delta:
                     raise BreakerError(
-                        func_name=f"{func.__module__}.{func.__name__}", block_time=self.block_time
+                        func_name=f"{func.__module__}.{func.__name__}",
+                        block_time=self.block_time,
                     )
 
             try:
@@ -90,3 +91,4 @@ def get_comments(post_id: int) -> Any:
 
 if __name__ == "__main__":
     get_comments(1)
+    
