@@ -62,25 +62,30 @@ class CircuitBreaker:
     def _validate_parameters(self, count: int, recovery: int, triggers: Any) -> None:
         errors: list[Exception] = []
 
+        self._check_integers(count, recovery, errors)
+        self._check_triggers(triggers, errors)
+
+        if errors:
+            raise ExceptionGroup(VALIDATIONS_FAILED, errors)
+
+    def _check_integers(self, count: int, recovery: int, errors: list[Exception]) -> None:
         if not isinstance(count, int) or count <= 0:
             errors.append(ValueError(INVALID_CRITICAL_COUNT))
         if not isinstance(recovery, int) or recovery <= 0:
             errors.append(ValueError(INVALID_RECOVERY_TIME))
 
-        is_valid_trigger = True
+    def _check_triggers(self, triggers: Any, errors: list[Exception]) -> None:
+        is_valid = True
         if isinstance(triggers, tuple):
             for trigger in triggers:
                 if not (isinstance(trigger, type) and issubclass(trigger, Exception)):
-                    is_valid_trigger = False
+                    is_valid = False
                     break
         elif not (isinstance(triggers, type) and issubclass(triggers, Exception)):
-            is_valid_trigger = False
+            is_valid = False
 
-        if not is_valid_trigger:
+        if not is_valid:
             errors.append(TypeError(INVALID_TRIGGERS_ERR))
-
-        if errors:
-            raise ExceptionGroup(VALIDATIONS_FAILED, errors)
 
     def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
