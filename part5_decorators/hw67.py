@@ -38,9 +38,7 @@ def _validate_breaker_args(count: int, recovery: int, triggers: Any) -> None:
 
     is_valid = isinstance(triggers, type) and issubclass(triggers, Exception)
     if isinstance(triggers, tuple):
-        is_valid = all(
-            isinstance(t, type) and issubclass(t, Exception) for t in triggers
-        )
+        is_valid = all(isinstance(t, type) and issubclass(t, Exception) for t in triggers)
 
     if not is_valid:
         errors.append(TypeError(INVALID_TRIGGERS_ERR))
