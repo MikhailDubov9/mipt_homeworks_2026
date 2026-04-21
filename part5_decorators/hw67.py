@@ -85,9 +85,7 @@ class CircuitBreaker:
             errors.append(TypeError(INVALID_TRIGGERS_ERR))
 
     def _is_valid_tuple(self, triggers: tuple[Any, ...]) -> bool:
-        return all(
-            isinstance(t, type) and issubclass(t, Exception) for t in triggers
-        )
+        return all(isinstance(t, type) and issubclass(t, Exception) for t in triggers)
 
     def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
