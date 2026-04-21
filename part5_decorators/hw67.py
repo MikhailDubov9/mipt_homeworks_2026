@@ -49,35 +49,40 @@ class CircuitBreaker:
         self.fail_count = 0
         self.block_time: datetime.datetime | None = None
 
+    def _check_block(self, func: CallableWithMeta) -> None:
+        if not self.block_time:
+            return
+        recovery_delta = datetime.timedelta(seconds=self.time_to_recover)
+        if datetime.datetime.now(datetime.UTC) < self.block_time + recovery_delta:
+            raise BreakerError(
+                func_name=f"{func.__module__}.{func.__name__}",
+                block_time=self.block_time,
+            )
+
+    def _handle_error(self, func: CallableWithMeta, error: Exception) -> None:
+        if not isinstance(error, self.triggers_on):
+            raise error
+        self.fail_count += 1
+        if self.fail_count >= self.critical_count:
+            self.block_time = datetime.datetime.now(datetime.UTC)
+            raise BreakerError(
+                func_name=f"{func.__module__}.{func.__name__}",
+                block_time=self.block_time,
+            ) from error
+        raise error
+
     def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
-            now = datetime.datetime.now(datetime.UTC)
-            if self.block_time:
-                recovery_delta = datetime.timedelta(seconds=self.time_to_recover)
-                if now < self.block_time + recovery_delta:
-                    raise BreakerError(
-                        func_name=f"{func.__module__}.{func.__name__}",
-                        block_time=self.block_time,
-                    )
-
+            self._check_block(func)
             try:
                 result = func(*args, **kwargs)
-            except Exception as e:
-                if isinstance(e, self.triggers_on):
-                    self.fail_count += 1
-                    if self.fail_count >= self.critical_count:
-                        self.block_time = now
-                        raise BreakerError(
-                            func_name=f"{func.__module__}.{func.__name__}",
-                            block_time=self.block_time,
-                        ) from e
-                raise
+            except Exception as error:
+                self._handle_error(func, error)
             else:
                 self.fail_count = 0
                 self.block_time = None
                 return result
-
         return wrapper
 
 
