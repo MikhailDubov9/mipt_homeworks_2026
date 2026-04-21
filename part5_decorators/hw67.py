@@ -35,20 +35,7 @@ class CircuitBreaker:
         time_to_recover: int = 30,
         triggers_on: type[Exception] | tuple[type[Exception], ...] = Exception,
     ):
-        errors: list[Exception] = []
-        if not isinstance(critical_count, int) or critical_count <= 0:
-            errors.append(ValueError(INVALID_CRITICAL_COUNT))
-        if not isinstance(time_to_recover, int) or time_to_recover <= 0:
-            errors.append(ValueError(INVALID_RECOVERY_TIME))
-
-        if isinstance(triggers_on, tuple):
-            if not all(isinstance(t, type) and issubclass(t, Exception) for t in triggers_on):
-                errors.append(TypeError(INVALID_TRIGGERS_ERR))
-        elif not (isinstance(triggers_on, type) and issubclass(triggers_on, Exception)):
-            errors.append(TypeError(INVALID_TRIGGERS_ERR))
-
-        if errors:
-            raise ExceptionGroup(VALIDATIONS_FAILED, errors)
+        self._validate_parameters(critical_count, time_to_recover, triggers_on)
 
         self.critical_count = critical_count
         self.time_to_recover = time_to_recover
@@ -71,6 +58,29 @@ class CircuitBreaker:
                 return result
 
         return wrapper
+
+    def _validate_parameters(self, count: int, recovery: int, triggers: Any) -> None:
+        errors: list[Exception] = []
+
+        if not isinstance(count, int) or count <= 0:
+            errors.append(ValueError(INVALID_CRITICAL_COUNT))
+        if not isinstance(recovery, int) or recovery <= 0:
+            errors.append(ValueError(INVALID_RECOVERY_TIME))
+
+        is_valid_trigger = True
+        if isinstance(triggers, tuple):
+            for trigger in triggers:
+                if not (isinstance(trigger, type) and issubclass(trigger, Exception)):
+                    is_valid_trigger = False
+                    break
+        elif not (isinstance(triggers, type) and issubclass(triggers, Exception)):
+            is_valid_trigger = False
+
+        if not is_valid_trigger:
+            errors.append(TypeError(INVALID_TRIGGERS_ERR))
+
+        if errors:
+            raise ExceptionGroup(VALIDATIONS_FAILED, errors)
 
     def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
