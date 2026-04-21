@@ -36,17 +36,13 @@ def _validate_breaker_args(count: int, recovery: int, triggers: Any) -> None:
     if not isinstance(recovery, int) or recovery <= 0:
         errors.append(ValueError(INVALID_RECOVERY_TIME))
 
-    is_valid_trigger = False
+    is_valid = isinstance(triggers, type) and issubclass(triggers, Exception)
     if isinstance(triggers, tuple):
-        valid_types = (
-            isinstance(trg, type) and issubclass(trg, Exception)
-            for trg in triggers
+        is_valid = all(
+            isinstance(t, type) and issubclass(t, Exception) for t in triggers
         )
-        is_valid_trigger = all(valid_types)
-    elif isinstance(triggers, type) and issubclass(triggers, Exception):
-        is_valid_trigger = True
 
-    if not is_valid_trigger:
+    if not is_valid:
         errors.append(TypeError(INVALID_TRIGGERS_ERR))
 
     if errors:
@@ -94,7 +90,8 @@ class CircuitBreaker:
         if not self.block_time:
             return
         recovery_delta = datetime.timedelta(seconds=self.time_to_recover)
-        if datetime.datetime.now(datetime.UTC) < self.block_time + recovery_delta:
+        now = datetime.datetime.now(datetime.UTC)
+        if now < self.block_time + recovery_delta:
             raise BreakerError(
                 func_name=f"{func.__module__}.{func.__name__}",
                 block_time=self.block_time,
