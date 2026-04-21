@@ -89,4 +89,4 @@ def get_comments(post_id: int) -> Any:
 
 
 if __name__ == "__main__":
-    print(get_comments(1))
+    get_comments(1)
