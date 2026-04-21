@@ -28,6 +28,10 @@ class BreakerError(Exception):
         self.block_time = block_time
 
 
+def _is_exception_class(obj: Any) -> bool:
+    return isinstance(obj, type) and issubclass(obj, Exception)
+
+
 def _validate_breaker_args(count: int, recovery: int, triggers: Any) -> None:
     errors: list[Exception] = []
 
@@ -36,9 +40,9 @@ def _validate_breaker_args(count: int, recovery: int, triggers: Any) -> None:
     if not isinstance(recovery, int) or recovery <= 0:
         errors.append(ValueError(INVALID_RECOVERY_TIME))
 
-    is_valid = isinstance(triggers, type) and issubclass(triggers, Exception)
+    is_valid = _is_exception_class(triggers)
     if isinstance(triggers, tuple):
-        is_valid = all(isinstance(t, type) and issubclass(t, Exception) for t in triggers)
+        is_valid = all(_is_exception_class(trg) for trg in triggers)
 
     if not is_valid:
         errors.append(TypeError(INVALID_TRIGGERS_ERR))
@@ -69,13 +73,7 @@ class CircuitBreaker:
             try:
                 result = func(*args, **kwargs)
             except self.triggers_on as err:
-                self.fail_count += 1
-                if self.fail_count >= self.critical_count:
-                    self.block_time = datetime.datetime.now(datetime.UTC)
-                    raise BreakerError(
-                        func_name=f"{func.__module__}.{func.__name__}",
-                        block_time=self.block_time,
-                    ) from err
+                self._handle_failure(func, err)
                 raise
             else:
                 self.fail_count = 0
@@ -83,6 +81,19 @@ class CircuitBreaker:
                 return result
 
         return wrapper
+
+    def _handle_failure(
+        self,
+        func: CallableWithMeta[Any, Any],
+        err: Exception,
+    ) -> None:
+        self.fail_count += 1
+        if self.fail_count >= self.critical_count:
+            self.block_time = datetime.datetime.now(datetime.UTC)
+            raise BreakerError(
+                func_name=f"{func.__module__}.{func.__name__}",
+                block_time=self.block_time,
+            ) from err
 
     def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
