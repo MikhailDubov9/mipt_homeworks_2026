@@ -34,6 +34,9 @@ project-includes = ["**/*.py"]
 project-excludes = ["**/*.ipynb*"]
 
 [dependency-groups]
+dev = [
+    "ruff>=0.14.13",
+]
 lectures = [
     "ipykernel>=7.2.0",
 ]

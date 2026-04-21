@@ -1,10 +1,8 @@
 import datetime
 import functools
 import json
-
 from typing import Any, ParamSpec, Protocol, TypeVar
 from urllib.request import urlopen
-
 
 INVALID_CRITICAL_COUNT = "Breaker count must be positive integer!"
 INVALID_RECOVERY_TIME = "Breaker recovery time must be positive integer!"

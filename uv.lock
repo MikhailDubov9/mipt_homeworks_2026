@@ -401,6 +401,9 @@ version = "0.1.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
 lectures = [
     { name = "ipykernel" },
 ]
@@ -425,6 +428,7 @@ test = [
 [package.metadata]
 
 [package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.14.13" }]
 lectures = [{ name = "ipykernel", specifier = ">=7.2.0" }]
 lint = [
     { name = "mypy", specifier = ">=1.19.1" },
