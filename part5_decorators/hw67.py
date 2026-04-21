@@ -32,7 +32,7 @@ class CircuitBreaker:
         self,
         critical_count: int = 5,
         time_to_recover: int = 30,
-        triggers_on: type[Exception] = Exception,
+        triggers_on: type[Exception] | tuple[type[Exception], ...] = Exception,
     ):
         errors = []
         if not isinstance(critical_count, int) or critical_count <= 0:
