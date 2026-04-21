@@ -39,6 +39,12 @@ class CircuitBreaker:
             errors.append(ValueError(INVALID_CRITICAL_COUNT))
         if not isinstance(time_to_recover, int) or time_to_recover <= 0:
             errors.append(ValueError(INVALID_RECOVERY_TIME))
+        
+        if isinstance(triggers_on, tuple):
+            if not all(isinstance(t, type) and issubclass(t, Exception) for t in triggers_on):
+                errors.append(TypeError(INVALID_TRIGGERS_ERR))
+        elif not (isinstance(triggers_on, type) and issubclass(triggers_on, Exception)):
+            errors.append(TypeError(INVALID_TRIGGERS_ERR))
 
         if errors:
             raise ExceptionGroup(VALIDATIONS_FAILED, errors)
