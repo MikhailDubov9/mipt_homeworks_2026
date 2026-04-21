@@ -57,8 +57,7 @@ class CircuitBreaker:
                 recovery_delta = datetime.timedelta(seconds=self.time_to_recover)
                 if now < self.block_time + recovery_delta:
                     raise BreakerError(
-                        func_name=f"{func.__module__}.{func.__name__}",
-                        block_time=self.block_time
+                        func_name=f"{func.__module__}.{func.__name__}", block_time=self.block_time
                     )
 
             try:
@@ -70,7 +69,7 @@ class CircuitBreaker:
                         self.block_time = now
                         raise BreakerError(
                             func_name=f"{func.__module__}.{func.__name__}",
-                            block_time=self.block_time
+                            block_time=self.block_time,
                         ) from e
                 raise
             else:
@@ -84,11 +83,10 @@ class CircuitBreaker:
 circuit_breaker = CircuitBreaker(5, 30, Exception)
 
 
-@circuit_breaker
 def get_comments(post_id: int) -> Any:
     response = urlopen(f"https://jsonplaceholder.typicode.com/comments?postId={post_id}")
     return json.loads(response.read())
 
 
 if __name__ == "__main__":
-    comments = get_comments(1)
+    print(get_comments(1))
