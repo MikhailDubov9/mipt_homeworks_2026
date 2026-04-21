@@ -48,6 +48,22 @@ class CircuitBreaker:
         self.triggers_on = triggers_on
         self.fail_count = 0
         self.block_time: datetime.datetime | None = None
+    
+    def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
+            self._check_block(func)
+            try:
+                result = func(*args, **kwargs)
+            except Exception as error:
+                self._handle_error(func, error)
+                raise
+            else:
+                self.fail_count = 0
+                self.block_time = None
+                return result
+
+        return wrapper
 
     def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
@@ -70,22 +86,6 @@ class CircuitBreaker:
                 block_time=self.block_time,
             ) from error
         raise error
-
-    def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
-        @functools.wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
-            self._check_block(func)
-            try:
-                result = func(*args, **kwargs)
-            except Exception as error:
-                self._handle_error(func, error)
-                raise
-            else:
-                self.fail_count = 0
-                self.block_time = None
-                return result
-
-        return wrapper
 
 
 circuit_breaker = CircuitBreaker(5, 30, Exception)
