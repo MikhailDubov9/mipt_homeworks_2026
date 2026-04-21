@@ -49,7 +49,7 @@ class CircuitBreaker:
         self.fail_count = 0
         self.block_time: datetime.datetime | None = None
 
-    def _check_block(self, func: CallableWithMeta) -> None:
+    def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
             return
         recovery_delta = datetime.timedelta(seconds=self.time_to_recover)
@@ -59,7 +59,7 @@ class CircuitBreaker:
                 block_time=self.block_time,
             )
 
-    def _handle_error(self, func: CallableWithMeta, error: Exception) -> None:
+    def _handle_error(self, func: CallableWithMeta[Any, Any], error: Exception) -> None:
         if not isinstance(error, self.triggers_on):
             raise error
         self.fail_count += 1
@@ -79,10 +79,12 @@ class CircuitBreaker:
                 result = func(*args, **kwargs)
             except Exception as error:
                 self._handle_error(func, error)
+                raise
             else:
                 self.fail_count = 0
                 self.block_time = None
                 return result
+
         return wrapper
 
 
