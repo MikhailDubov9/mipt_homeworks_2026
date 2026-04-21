@@ -48,7 +48,7 @@ class CircuitBreaker:
         self.triggers_on = triggers_on
         self.fail_count = 0
         self.block_time: datetime.datetime | None = None
-    
+
     def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
