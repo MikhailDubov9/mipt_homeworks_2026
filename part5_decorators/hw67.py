@@ -28,6 +28,31 @@ class BreakerError(Exception):
         self.block_time = block_time
 
 
+def _validate_breaker_args(count: int, recovery: int, triggers: Any) -> None:
+    errors: list[Exception] = []
+
+    if not isinstance(count, int) or count <= 0:
+        errors.append(ValueError(INVALID_CRITICAL_COUNT))
+    if not isinstance(recovery, int) or recovery <= 0:
+        errors.append(ValueError(INVALID_RECOVERY_TIME))
+
+    is_valid_trigger = False
+    if isinstance(triggers, tuple):
+        valid_types = (
+            isinstance(trg, type) and issubclass(trg, Exception)
+            for trg in triggers
+        )
+        is_valid_trigger = all(valid_types)
+    elif isinstance(triggers, type) and issubclass(triggers, Exception):
+        is_valid_trigger = True
+
+    if not is_valid_trigger:
+        errors.append(TypeError(INVALID_TRIGGERS_ERR))
+
+    if errors:
+        raise ExceptionGroup(VALIDATIONS_FAILED, errors)
+
+
 class CircuitBreaker:
     def __init__(
         self,
@@ -35,7 +60,7 @@ class CircuitBreaker:
         time_to_recover: int = 30,
         triggers_on: type[Exception] | tuple[type[Exception], ...] = Exception,
     ):
-        self._validate_parameters(critical_count, time_to_recover, triggers_on)
+        _validate_breaker_args(critical_count, time_to_recover, triggers_on)
 
         self.critical_count = critical_count
         self.time_to_recover = time_to_recover
@@ -49,8 +74,14 @@ class CircuitBreaker:
             self._check_block(func)
             try:
                 result = func(*args, **kwargs)
-            except Exception as error:
-                self._handle_error(func, error)
+            except self.triggers_on as err:
+                self.fail_count += 1
+                if self.fail_count >= self.critical_count:
+                    self.block_time = datetime.datetime.now(datetime.UTC)
+                    raise BreakerError(
+                        func_name=f"{func.__module__}.{func.__name__}",
+                        block_time=self.block_time,
+                    ) from err
                 raise
             else:
                 self.fail_count = 0
@@ -58,38 +89,6 @@ class CircuitBreaker:
                 return result
 
         return wrapper
-
-    def _validate_parameters(self, count: int, recovery: int, triggers: Any) -> None:
-        errors: list[Exception] = []
-
-        self._check_integers(count, recovery, errors)
-        self._check_triggers(triggers, errors)
-
-        if errors:
-            raise ExceptionGroup(VALIDATIONS_FAILED, errors)
-
-    def _check_integers(self, count: int, recovery: int, errors: list[Exception]) -> None:
-        if not isinstance(count, int) or count <= 0:
-            errors.append(ValueError(INVALID_CRITICAL_COUNT))
-        if not isinstance(recovery, int) or recovery <= 0:
-            errors.append(ValueError(INVALID_RECOVERY_TIME))
-
-    def _check_triggers(self, triggers: Any, errors: list[Exception]) -> None:
-        if isinstance(triggers, tuple):
-            if not self._is_valid_tuple(triggers):
-                errors.append(TypeError(INVALID_TRIGGERS_ERR))
-            return
-
-        is_type = isinstance(triggers, type)
-        if not (is_type and issubclass(triggers, Exception)):
-            errors.append(TypeError(INVALID_TRIGGERS_ERR))
-
-    def _is_valid_tuple(self, triggers: tuple[Any, ...]) -> bool:
-        valid_types = (
-            isinstance(trg, type) and issubclass(trg, Exception)
-            for trg in triggers
-        )
-        return all(valid_types)
 
     def _check_block(self, func: CallableWithMeta[Any, Any]) -> None:
         if not self.block_time:
@@ -100,18 +99,6 @@ class CircuitBreaker:
                 func_name=f"{func.__module__}.{func.__name__}",
                 block_time=self.block_time,
             )
-
-    def _handle_error(self, func: CallableWithMeta[Any, Any], error: Exception) -> None:
-        if not isinstance(error, self.triggers_on):
-            raise error
-        self.fail_count += 1
-        if self.fail_count >= self.critical_count:
-            self.block_time = datetime.datetime.now(datetime.UTC)
-            raise BreakerError(
-                func_name=f"{func.__module__}.{func.__name__}",
-                block_time=self.block_time,
-            ) from error
-        raise error
 
 
 circuit_breaker = CircuitBreaker(5, 30, Exception)
