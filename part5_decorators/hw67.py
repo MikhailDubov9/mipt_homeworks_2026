@@ -4,7 +4,6 @@ import json
 from typing import Any, ParamSpec, Protocol, TypeVar
 from urllib.request import urlopen
 
-# Константы сообщений
 INVALID_COUNT = "Breaker count must be positive integer!"
 INVALID_TIME = "Breaker recovery time must be positive integer!"
 INVALID_TRIGGERS = "triggers_on must be Exception type!"
@@ -48,6 +47,7 @@ class CircuitBreaker:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
             self._check_block(func)
             return self._run(func, *args, **kwargs)
+
         return wrapper
 
     def _run(
@@ -67,7 +67,7 @@ class CircuitBreaker:
         return result
 
     def _validate_args(self, count: Any, recovery: Any, triggers: Any) -> None:
-        errors = []
+        errors: list[Exception] = []
         if not isinstance(count, int) or count <= 0:
             errors.append(ValueError(INVALID_COUNT))
         if not isinstance(recovery, int) or recovery <= 0:
