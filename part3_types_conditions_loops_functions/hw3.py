@@ -66,11 +66,7 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     if len(parts) != DATE_PARTS_COUNT:
         return None
 
-    if (
-        len(parts[0]) != DAY_LEN
-        or len(parts[1]) != MONTH_LEN
-        or len(parts[2]) != YEAR_LEN
-    ):
+    if len(parts[0]) != DAY_LEN or len(parts[1]) != MONTH_LEN or len(parts[2]) != YEAR_LEN:
         return None
 
     if not (parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit()):
@@ -206,11 +202,7 @@ def stats_handler(report_date: str) -> str:
     for tx in financial_transactions_storage:
         process_tx_for_stats(tx, rd, stats, category_expenses)
     diff = stats["month_income"] - stats["month_expenses"]
-    profit_loss_str = (
-        f"loss amounted to {-diff:.2f}"
-        if diff < 0
-        else f"profit amounted to {diff:.2f}"
-    )
+    profit_loss_str = f"loss amounted to {-diff:.2f}" if diff < 0 else f"profit amounted to {diff:.2f}"
     lines = [
         f"Your statistics as of {report_date}:",
         f"Total capital: {stats['total_capital']:.2f} rubles",
