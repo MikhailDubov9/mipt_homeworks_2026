@@ -22,8 +22,22 @@ EXPENSE_CATEGORIES = {
     "Other": ("SomeCategory", "SomeOtherCategory"),
 }
 
-
 financial_transactions_storage: list[dict[str, Any]] = []
+
+DATE_PARTS_COUNT = 3
+DAY_LEN = 2
+MONTH_LEN = 2
+YEAR_LEN = 4
+MONTHS_IN_YEAR = 12
+MAX_DECIMAL_PARTS = 2
+CMD_INCOME_LEN = 3
+CMD_COST_LEN = 4
+CMD_STATS_LEN = 2
+CMD_CATEGORIES_LEN = 2
+CAT_PARTS_LEN = 2
+LEAP_YEAR_MULTIPLE = 4
+CENTURY_MULTIPLE = 100
+QUAD_CENTURY_MULTIPLE = 400
 
 
 def is_leap_year(year: int) -> bool:
@@ -34,11 +48,11 @@ def is_leap_year(year: int) -> bool:
     :return: Значение високосности.
     :rtype: bool
     """
-    if year % 400 == 0:
+    if year % QUAD_CENTURY_MULTIPLE == 0:
         return True
-    if year % 100 == 0:
+    if year % CENTURY_MULTIPLE == 0:
         return False
-    return year % 4 == 0
+    return year % LEAP_YEAR_MULTIPLE == 0
 
 
 def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
@@ -50,211 +64,219 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     :rtype: tuple[int, int, int] | None
     """
     parts = maybe_dt.split("-")
-    if len(parts) != 3:
+    if len(parts) != DATE_PARTS_COUNT:
         return None
-    if len(parts[0]) != 2 or len(parts[1]) != 2 or len(parts[2]) != 4:
+
+    if len(parts[0]) != DAY_LEN or len(parts[1]) != MONTH_LEN or len(parts[2]) != YEAR_LEN:
         return None
+
     if not (parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit()):
         return None
-        
+
     d = int(parts[0])
     m = int(parts[1])
     y = int(parts[2])
-    
-    if y < 1 or m < 1 or m > 12 or d < 1:
+
+    if y < 1 or m < 1 or m > MONTHS_IN_YEAR or d < 1:
         return None
-        
+
     days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if is_leap_year(y):
         days_in_month[1] = 29
-        
+
     if d > days_in_month[m - 1]:
         return None
-        
+
     return (d, m, y)
 
 
 def parse_amount(val: str) -> float | None:
     val = val.replace(",", ".")
-    
-    if val.startswith("-"):
-        body = val[1:]
-        sign = -1.0
-    else:
-        body = val
-        sign = 1.0
-        
-    if not body:
-        return None
-        
+    body = val[1:] if val.startswith("-") or val.startswith("+") else val
     parts = body.split(".")
-    if len(parts) > 2:
-        return None
-        
-    if len(parts) == 1:
-        if not parts[0].isdigit():
-            return None
-    else:
-        if parts[0] != "" and not parts[0].isdigit():
-            return None
-        if parts[1] != "" and not parts[1].isdigit():
-            return None
-        if parts[0] == "" and parts[1] == "":
-            return None
 
-    return sign * float(val)
+    is_valid = len(parts) <= MAX_DECIMAL_PARTS and bool(body)
+    if is_valid:
+        for p in parts:
+            if p and not p.isdigit():
+                is_valid = False
+
+    if is_valid and not any(p.isdigit() for p in parts):
+        is_valid = False
+
+    return float(val) if is_valid else None
 
 
 def income_handler(amount: float, income_date: str) -> str:
-    financial_transactions_storage.append({"amount": amount, "date": income_date})
+    if amount <= 0:
+        return NONPOSITIVE_VALUE_MSG
+
+    dt_val = extract_date(income_date)
+    if dt_val is None:
+        return INCORRECT_DATE_MSG
+
+    financial_transactions_storage.append({"amount": amount, "date": dt_val})
     return OP_SUCCESS_MSG
 
 
 def cost_handler(category_name: str, amount: float, income_date: str) -> str:
-    financial_transactions_storage.append({"category": category_name, "amount": amount, "date": income_date})
+    cat_valid = False
+    c_parts = category_name.split("::")
+
+    if len(c_parts) == CAT_PARTS_LEN:
+        common, target = c_parts[0], c_parts[1]
+        if common in EXPENSE_CATEGORIES and target in EXPENSE_CATEGORIES[common]:
+            cat_valid = True
+
+    if not cat_valid:
+        return NOT_EXISTS_CATEGORY
+
+    if amount <= 0:
+        return NONPOSITIVE_VALUE_MSG
+
+    dt_val = extract_date(income_date)
+    if dt_val is None:
+        return INCORRECT_DATE_MSG
+
+    financial_transactions_storage.append({
+        "category": category_name,
+        "amount": amount,
+        "date": dt_val,
+    })
     return OP_SUCCESS_MSG
 
 
 def cost_categories_handler() -> str:
     lines = []
     for common, targets in EXPENSE_CATEGORIES.items():
-        lines.append(f"{common}: {', '.join(targets)}")
+        for target in targets:
+            lines.append(f"{common}::{target}")
     return "\n".join(lines)
+
+
+def process_tx_for_stats(
+    tx: dict[str, Any],
+    report_date_tuple: tuple[int, int, int],
+    stats: dict[str, float],
+    category_expenses: dict[str, float],
+) -> None:
+    t_d, t_m, t_y = tx["date"]
+    rd_day, rm, ry = report_date_tuple
+
+    if (t_y, t_m, t_d) > (ry, rm, rd_day):
+        return
+
+    amt = float(tx["amount"])
+    is_cost = "category" in tx
+    is_current_month = (t_y == ry and t_m == rm)
+
+    if is_cost:
+        stats["total_capital"] -= amt
+    else:
+        stats["total_capital"] += amt
+
+    if is_current_month:
+        if is_cost:
+            stats["month_expenses"] += amt
+            target_cat = tx["category"].split("::")[1]
+            category_expenses[target_cat] = category_expenses.get(target_cat, 0.0) + amt
+        else:
+            stats["month_income"] += amt
 
 
 def stats_handler(report_date: str) -> str:
     rd = extract_date(report_date)
     if not rd:
         return INCORRECT_DATE_MSG
-    ry, rm, rd_day = rd[2], rd[1], rd[0]
-    
-    total_capital = 0.0
-    month_income = 0.0
-    month_expenses = 0.0
-    
+
+    stats = {"total_capital": 0.0, "month_income": 0.0, "month_expenses": 0.0}
     category_expenses: dict[str, float] = {}
-    
+
     for tx in financial_transactions_storage:
-        tx_d = extract_date(tx["date"])
-        if not tx_d:
-            continue
-        t_y, t_m, t_d = tx_d[2], tx_d[1], tx_d[0]
-        
-        if (t_y, t_m, t_d) <= (ry, rm, rd_day):
-            amt = tx["amount"]
-            if "category" in tx:
-                total_capital -= amt
-                if t_y == ry and t_m == rm:
-                    month_expenses += amt
-                    target_cat = tx["category"].split("::")[1]
-                    category_expenses[target_cat] = category_expenses.get(target_cat, 0.0) + amt
-            else:
-                total_capital += amt
-                if t_y == ry and t_m == rm:
-                    month_income += amt
+        process_tx_for_stats(tx, rd, stats, category_expenses)
 
-    diff = month_income - month_expenses
-    if diff < 0:
-        profit_loss_str = f"loss amounted to {-diff:.2f}"
-    else:
-        profit_loss_str = f"profit amounted to {diff:.2f}"
+    diff = stats["month_income"] - stats["month_expenses"]
+    profit_loss_str = f"loss amounted to {-diff:.2f}" if diff < 0 else f"profit amounted to {diff:.2f}"
 
-    lines = []
-    lines.append(f"Your statistics as of {report_date}:")
-    lines.append(f"Total capital: {total_capital:.2f} rubles")
-    lines.append(f"This month, the {profit_loss_str} rubles.")
-    lines.append(f"Income: {month_income:.2f} rubles")
-    lines.append(f"Expenses: {month_expenses:.2f} rubles")
-    lines.append("")
-    lines.append("Details (category: amount):")
-    
+    lines = [
+        f"Your statistics as of {report_date}:",
+        f"Total capital: {stats['total_capital']:.2f} rubles",
+        f"This month, the {profit_loss_str} rubles.",
+        f"Income: {stats['month_income']:.2f} rubles",
+        f"Expenses: {stats['month_expenses']:.2f} rubles",
+        "",
+        "Details (category: amount):",
+    ]
+
     if category_expenses:
-        sorted_cats = sorted(category_expenses.keys())
-        for i, cat in enumerate(sorted_cats, 1):
+        for i, cat in enumerate(sorted(category_expenses.keys()), 1):
             amt = category_expenses[cat]
-            if amt.is_integer():
-                amt_str = str(int(amt))
-            else:
-                amt_str = str(amt)
+            amt_str = str(int(amt)) if amt.is_integer() else str(amt)
             lines.append(f"{i}. {cat}: {amt_str}")
 
     return "\n".join(lines)
 
 
+def handle_income_command(parts: list[str]) -> None:
+    if len(parts) != CMD_INCOME_LEN:
+        print(UNKNOWN_COMMAND_MSG)
+        return
+
+    amt_str, date_str = parts[1], parts[2]
+    amt_val = parse_amount(amt_str)
+
+    if amt_val is None:
+        amt_val = -1.0
+
+    res = income_handler(amt_val, date_str)
+    print(res)
+
+
+def handle_cost_command(parts: list[str]) -> None:
+    if len(parts) == CMD_CATEGORIES_LEN and parts[1] == "categories":
+        print(cost_categories_handler())
+        return
+
+    if len(parts) != CMD_COST_LEN:
+        print(UNKNOWN_COMMAND_MSG)
+        return
+
+    cat_str, amt_str, date_str = parts[1], parts[2], parts[3]
+    amt_val = parse_amount(amt_str)
+
+    if amt_val is None:
+        amt_val = -1.0
+
+    res = cost_handler(cat_str, amt_val, date_str)
+    print(res)
+    if res == NOT_EXISTS_CATEGORY:
+        print(cost_categories_handler())
+
+
+def handle_stats_command(parts: list[str]) -> None:
+    if len(parts) != CMD_STATS_LEN:
+        print(UNKNOWN_COMMAND_MSG)
+        return
+    print(stats_handler(parts[1]))
+
+
 def main() -> None:
     for line in sys.stdin:
-        line = line.strip()
-        if not line:
+        clean_line = line.strip()
+        if not clean_line:
             continue
-        parts = line.split()
+
+        parts = clean_line.split()
         if not parts:
             continue
-            
+
         cmd = parts[0]
         if cmd == "income":
-            if len(parts) != 3:
-                print(UNKNOWN_COMMAND_MSG)
-                continue
-            amt_str, date_str = parts[1], parts[2]
-            
-            amt_val = parse_amount(amt_str)
-            dt_val = extract_date(date_str)
-            
-            if amt_val is None or amt_val <= 0:
-                print(NONPOSITIVE_VALUE_MSG)
-                continue
-            if dt_val is None:
-                print(INCORRECT_DATE_MSG)
-                continue
-                
-            print(income_handler(amt_val, date_str))
-            
+            handle_income_command(parts)
         elif cmd == "cost":
-            if len(parts) == 2 and parts[1] == "categories":
-                print(cost_categories_handler())
-                continue
-                
-            if len(parts) != 4:
-                print(UNKNOWN_COMMAND_MSG)
-                continue
-                
-            cat_str, amt_str, date_str = parts[1], parts[2], parts[3]
-            
-            cat_valid = False
-            c_parts = cat_str.split("::")
-            if len(c_parts) == 2:
-                common, target = c_parts
-                if common in EXPENSE_CATEGORIES and target in EXPENSE_CATEGORIES[common]:
-                    cat_valid = True
-                    
-            amt_val = parse_amount(amt_str)
-            dt_val = extract_date(date_str)
-            
-            if not cat_valid:
-                print(f"{NOT_EXISTS_CATEGORY}\n{cost_categories_handler()}")
-                continue
-                
-            if amt_val is None or amt_val <= 0:
-                print(NONPOSITIVE_VALUE_MSG)
-                continue
-                
-            if dt_val is None:
-                print(INCORRECT_DATE_MSG)
-                continue
-                
-            print(cost_handler(cat_str, amt_val, date_str))
-            
+            handle_cost_command(parts)
         elif cmd == "stats":
-            if len(parts) != 2:
-                print(UNKNOWN_COMMAND_MSG)
-                continue
-            date_str = parts[1]
-            dt_val = extract_date(date_str)
-            if dt_val is None:
-                print(INCORRECT_DATE_MSG)
-                continue
-            print(stats_handler(date_str))
-            
+            handle_stats_command(parts)
         else:
             print(UNKNOWN_COMMAND_MSG)
 
