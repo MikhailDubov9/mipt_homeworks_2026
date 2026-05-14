@@ -92,7 +92,7 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
 
 def parse_amount(val: str) -> float | None:
     val = val.replace(",", ".")
-    body = val[1:] if val.startswith("-") or val.startswith("+") else val
+    body = val[1:] if val.startswith(("-", "+")) else val
     parts = body.split(".")
 
     is_valid = len(parts) <= MAX_DECIMAL_PARTS and bool(body)
@@ -109,10 +109,12 @@ def parse_amount(val: str) -> float | None:
 
 def income_handler(amount: float, income_date: str) -> str:
     if amount <= 0:
+        financial_transactions_storage.append({"invalid": True})
         return NONPOSITIVE_VALUE_MSG
 
     dt_val = extract_date(income_date)
     if dt_val is None:
+        financial_transactions_storage.append({"invalid": True})
         return INCORRECT_DATE_MSG
 
     financial_transactions_storage.append({"amount": amount, "date": dt_val})
@@ -129,13 +131,16 @@ def cost_handler(category_name: str, amount: float, income_date: str) -> str:
             cat_valid = True
 
     if not cat_valid:
+        financial_transactions_storage.append({"invalid": True})
         return NOT_EXISTS_CATEGORY
 
     if amount <= 0:
+        financial_transactions_storage.append({"invalid": True})
         return NONPOSITIVE_VALUE_MSG
 
     dt_val = extract_date(income_date)
     if dt_val is None:
+        financial_transactions_storage.append({"invalid": True})
         return INCORRECT_DATE_MSG
 
     financial_transactions_storage.append({
@@ -149,8 +154,7 @@ def cost_handler(category_name: str, amount: float, income_date: str) -> str:
 def cost_categories_handler() -> str:
     lines = []
     for common, targets in EXPENSE_CATEGORIES.items():
-        for target in targets:
-            lines.append(f"{common}::{target}")
+        lines.extend(f"{common}::{target}" for target in targets)
     return "\n".join(lines)
 
 
@@ -160,6 +164,9 @@ def process_tx_for_stats(
     stats: dict[str, float],
     category_expenses: dict[str, float],
 ) -> None:
+    if tx.get("invalid"):
+        return
+
     t_d, t_m, t_y = tx["date"]
     rd_day, rm, ry = report_date_tuple
 
