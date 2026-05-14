@@ -180,7 +180,7 @@ def process_tx_for_stats(
 
     amt = float(tx["amount"])
     is_cost = "category" in tx
-    is_current_month = (t_y == ry and t_m == rm)
+    is_current_month = t_y == ry and t_m == rm
 
     if is_cost:
         stats["total_capital"] -= amt
@@ -191,9 +191,8 @@ def process_tx_for_stats(
         if is_cost:
             stats["month_expenses"] += amt
             target_cat = tx["category"].split("::")[1]
-            category_expenses[target_cat] = (
-                category_expenses.get(target_cat, 0.0) + amt
-            )
+            cat_exp = category_expenses.get(target_cat, 0.0)
+            category_expenses[target_cat] = cat_exp + amt
         else:
             stats["month_income"] += amt
 
