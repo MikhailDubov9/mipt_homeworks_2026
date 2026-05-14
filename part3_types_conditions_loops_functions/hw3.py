@@ -198,8 +198,12 @@ def process_tx_for_stats(
         return
 
     tx_d, tx_m, tx_y = tx["date"]
+    rep_d, rep_m, rep_y = rep_date
 
-    if (tx_y, tx_m, tx_d) > (rep_date[2], rep_date[1], rep_date[0]):
+    tx_dt = (tx_y, tx_m, tx_d)
+    rep_dt = (rep_y, rep_m, rep_d)
+
+    if tx_dt > rep_dt:
         return
 
     amt = float(tx["amount"])
@@ -210,7 +214,7 @@ def process_tx_for_stats(
     else:
         stats["total_capital"] += amt
 
-    if tx_y == rep_date[2] and tx_m == rep_date[1]:
+    if tx_y == rep_y and tx_m == rep_m:
         if is_cost:
             stats["month_expenses"] += amt
             target_cat = tx["category"].split("::")[1]
