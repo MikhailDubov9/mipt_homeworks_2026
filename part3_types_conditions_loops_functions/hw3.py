@@ -201,20 +201,16 @@ def stats_handler(report_date: str) -> str:
     rd = extract_date(report_date)
     if not rd:
         return INCORRECT_DATE_MSG
-
     stats = {"total_capital": 0.0, "month_income": 0.0, "month_expenses": 0.0}
     category_expenses: dict[str, float] = {}
-
     for tx in financial_transactions_storage:
         process_tx_for_stats(tx, rd, stats, category_expenses)
-
     diff = stats["month_income"] - stats["month_expenses"]
     profit_loss_str = (
         f"loss amounted to {-diff:.2f}"
         if diff < 0
         else f"profit amounted to {diff:.2f}"
     )
-
     lines = [
         f"Your statistics as of {report_date}:",
         f"Total capital: {stats['total_capital']:.2f} rubles",
@@ -224,13 +220,11 @@ def stats_handler(report_date: str) -> str:
         "",
         "Details (category: amount):",
     ]
-
     if category_expenses:
         for i, cat in enumerate(sorted(category_expenses.keys()), 1):
             amt = category_expenses[cat]
             amt_str = str(int(amt)) if amt.is_integer() else str(amt)
             lines.append(f"{i}. {cat}: {amt_str}")
-
     return "\n".join(lines)
 
 
@@ -238,13 +232,10 @@ def handle_income_command(parts: list[str]) -> None:
     if len(parts) != CMD_INCOME_LEN:
         print(UNKNOWN_COMMAND_MSG)
         return
-
     amt_str, date_str = parts[1], parts[2]
     amt_val = parse_amount(amt_str)
-
     if amt_val is None:
         amt_val = -1.0
-
     res = income_handler(amt_val, date_str)
     print(res)
 
@@ -253,17 +244,13 @@ def handle_cost_command(parts: list[str]) -> None:
     if len(parts) == CMD_CATEGORIES_LEN and parts[1] == "categories":
         print(cost_categories_handler())
         return
-
     if len(parts) != CMD_COST_LEN:
         print(UNKNOWN_COMMAND_MSG)
         return
-
     cat_str, amt_str, date_str = parts[1], parts[2], parts[3]
     amt_val = parse_amount(amt_str)
-
     if amt_val is None:
         amt_val = -1.0
-
     res = cost_handler(cat_str, amt_val, date_str)
     print(res)
     if res == NOT_EXISTS_CATEGORY:
@@ -282,11 +269,9 @@ def main() -> None:
         clean_line = line.strip()
         if not clean_line:
             continue
-
         parts = clean_line.split()
         if not parts:
             continue
-
         cmd = parts[0]
         if cmd == "income":
             handle_income_command(parts)
