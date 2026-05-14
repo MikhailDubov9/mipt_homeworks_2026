@@ -219,10 +219,10 @@ def stats_handler(report_date: str) -> str:
 
     diff = stats["month_income"] - stats["month_expenses"]
     diff_abs = abs(diff)
-    if diff < FLOAT_ZERO:
-        profit_loss_str = f"loss amounted to {diff_abs:.2f}"
-    else:
-        profit_loss_str = f"profit amounted to {diff_abs:.2f}"
+    
+    # Изящное решение, которое устраивает все линтеры:
+    outcome = "loss" if diff < FLOAT_ZERO else "profit"
+    profit_loss_str = f"{outcome} amounted to {diff_abs:.2f}"
 
     lines = [
         f"Your statistics as of {report_date}:",
