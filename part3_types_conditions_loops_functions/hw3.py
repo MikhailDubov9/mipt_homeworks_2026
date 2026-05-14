@@ -38,10 +38,23 @@ LEAP_YEAR_MULTIPLE = 4
 CENTURY_MULTIPLE = 100
 QUAD_CENTURY_MULTIPLE = 400
 
-FLOAT_ZERO = 0.0
+FLOAT_ZERO = float(0)
 INVALID_AMOUNT = -1.0
 
-DAYS_IN_MONTH = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+DAYS_IN_MONTH = (
+    31,
+    28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+)
 
 
 def is_leap_year(year: int) -> bool:
@@ -68,6 +81,14 @@ def _is_invalid_date(day: int, month: int, year: int) -> bool:
     return day > max_days[month - 1]
 
 
+def _is_valid_date_format(parts: list[str]) -> bool:
+    if len(parts[0]) != DAY_LEN:
+        return False
+    if len(parts[1]) != MONTH_LEN:
+        return False
+    return len(parts[2]) == YEAR_LEN
+
+
 def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     """
     Парсит дату формата DD-MM-YYYY из строки.
@@ -80,8 +101,7 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     if len(parts) != DATE_PARTS_COUNT:
         return None
 
-    lengths = (len(parts[0]), len(parts[1]), len(parts[2]))
-    if lengths != (DAY_LEN, MONTH_LEN, YEAR_LEN):
+    if not _is_valid_date_format(parts):
         return None
 
     if not "".join(parts).isdigit():
@@ -170,29 +190,27 @@ def cost_categories_handler() -> str:
 
 def process_tx_for_stats(
     tx: dict[str, Any],
-    report_date_tuple: tuple[int, int, int],
+    rep_date: tuple[int, int, int],
     stats: dict[str, float],
     category_expenses: dict[str, float],
 ) -> None:
     if not tx:
         return
 
-    t_d, t_m, t_y = tx["date"]
-    rd_day, rm, ry = report_date_tuple
+    tx_d, tx_m, tx_y = tx["date"]
 
-    if (t_y, t_m, t_d) > (ry, rm, rd_day):
+    if (tx_y, tx_m, tx_d) > (rep_date[2], rep_date[1], rep_date[0]):
         return
 
     amt = float(tx["amount"])
     is_cost = "category" in tx
-    is_current_month = t_y == ry and t_m == rm
 
     if is_cost:
         stats["total_capital"] -= amt
     else:
         stats["total_capital"] += amt
 
-    if is_current_month:
+    if tx_y == rep_date[2] and tx_m == rep_date[1]:
         if is_cost:
             stats["month_expenses"] += amt
             target_cat = tx["category"].split("::")[1]
@@ -200,6 +218,35 @@ def process_tx_for_stats(
             category_expenses[target_cat] = cat_exp + amt
         else:
             stats["month_income"] += amt
+
+
+def _build_stats_report(
+    rep_date: str,
+    stats: dict[str, float],
+    cat_exp: dict[str, float],
+) -> str:
+    diff = stats["month_income"] - stats["month_expenses"]
+    diff_abs = abs(diff)
+    outcome = "loss" if diff < FLOAT_ZERO else "profit"
+    profit_loss_str = f"{outcome} amounted to {diff_abs:.2f}"
+
+    lines = [
+        f"Your statistics as of {rep_date}:",
+        f"Total capital: {stats['total_capital']:.2f} rubles",
+        f"This month, the {profit_loss_str} rubles.",
+        f"Income: {stats['month_income']:.2f} rubles",
+        f"Expenses: {stats['month_expenses']:.2f} rubles",
+        "",
+        "Details (category: amount):",
+    ]
+
+    if cat_exp:
+        for idx, cat_name in enumerate(sorted(cat_exp.keys()), 1):
+            amt = cat_exp[cat_name]
+            amt_str = str(int(amt)) if amt.is_integer() else str(amt)
+            lines.append(f"{idx}. {cat_name}: {amt_str}")
+
+    return "\n".join(lines)
 
 
 def stats_handler(report_date: str) -> str:
@@ -217,28 +264,7 @@ def stats_handler(report_date: str) -> str:
     for tx in financial_transactions_storage:
         process_tx_for_stats(tx, rd, stats, category_expenses)
 
-    diff = stats["month_income"] - stats["month_expenses"]
-    diff_abs = abs(diff)
-    outcome = "loss" if diff < FLOAT_ZERO else "profit"
-    profit_loss_str = f"{outcome} amounted to {diff_abs:.2f}"
-
-    lines = [
-        f"Your statistics as of {report_date}:",
-        f"Total capital: {stats['total_capital']:.2f} rubles",
-        f"This month, the {profit_loss_str} rubles.",
-        f"Income: {stats['month_income']:.2f} rubles",
-        f"Expenses: {stats['month_expenses']:.2f} rubles",
-        "",
-        "Details (category: amount):",
-    ]
-
-    if category_expenses:
-        for i, cat in enumerate(sorted(category_expenses.keys()), 1):
-            amt = category_expenses[cat]
-            amt_str = str(int(amt)) if amt.is_integer() else str(amt)
-            lines.append(f"{i}. {cat}: {amt_str}")
-
-    return "\n".join(lines)
+    return _build_stats_report(report_date, stats, category_expenses)
 
 
 def handle_income_command(parts: list[str]) -> None:
