@@ -9,7 +9,6 @@ INCORRECT_DATE_MSG = "Invalid date!"
 NOT_EXISTS_CATEGORY = "Category not exists!"
 OP_SUCCESS_MSG = "Added"
 
-
 EXPENSE_CATEGORIES = {
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
     "Transport": ("Taxi", "Public transport", "Gas", "Car service"),
@@ -67,7 +66,11 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     if len(parts) != DATE_PARTS_COUNT:
         return None
 
-    if len(parts[0]) != DAY_LEN or len(parts[1]) != MONTH_LEN or len(parts[2]) != YEAR_LEN:
+    if (
+        len(parts[0]) != DAY_LEN
+        or len(parts[1]) != MONTH_LEN
+        or len(parts[2]) != YEAR_LEN
+    ):
         return None
 
     if not (parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit()):
@@ -109,12 +112,12 @@ def parse_amount(val: str) -> float | None:
 
 def income_handler(amount: float, income_date: str) -> str:
     if amount <= 0:
-        financial_transactions_storage.append({"invalid": True})
+        financial_transactions_storage.append({})
         return NONPOSITIVE_VALUE_MSG
 
     dt_val = extract_date(income_date)
     if dt_val is None:
-        financial_transactions_storage.append({"invalid": True})
+        financial_transactions_storage.append({})
         return INCORRECT_DATE_MSG
 
     financial_transactions_storage.append({"amount": amount, "date": dt_val})
@@ -131,28 +134,30 @@ def cost_handler(category_name: str, amount: float, income_date: str) -> str:
             cat_valid = True
 
     if not cat_valid:
-        financial_transactions_storage.append({"invalid": True})
+        financial_transactions_storage.append({})
         return NOT_EXISTS_CATEGORY
 
     if amount <= 0:
-        financial_transactions_storage.append({"invalid": True})
+        financial_transactions_storage.append({})
         return NONPOSITIVE_VALUE_MSG
 
     dt_val = extract_date(income_date)
     if dt_val is None:
-        financial_transactions_storage.append({"invalid": True})
+        financial_transactions_storage.append({})
         return INCORRECT_DATE_MSG
 
-    financial_transactions_storage.append({
-        "category": category_name,
-        "amount": amount,
-        "date": dt_val,
-    })
+    financial_transactions_storage.append(
+        {
+            "category": category_name,
+            "amount": amount,
+            "date": dt_val,
+        }
+    )
     return OP_SUCCESS_MSG
 
 
 def cost_categories_handler() -> str:
-    lines = []
+    lines: list[str] = []
     for common, targets in EXPENSE_CATEGORIES.items():
         lines.extend(f"{common}::{target}" for target in targets)
     return "\n".join(lines)
@@ -164,7 +169,7 @@ def process_tx_for_stats(
     stats: dict[str, float],
     category_expenses: dict[str, float],
 ) -> None:
-    if tx.get("invalid"):
+    if not tx:
         return
 
     t_d, t_m, t_y = tx["date"]
@@ -186,7 +191,9 @@ def process_tx_for_stats(
         if is_cost:
             stats["month_expenses"] += amt
             target_cat = tx["category"].split("::")[1]
-            category_expenses[target_cat] = category_expenses.get(target_cat, 0.0) + amt
+            category_expenses[target_cat] = (
+                category_expenses.get(target_cat, 0.0) + amt
+            )
         else:
             stats["month_income"] += amt
 
@@ -203,7 +210,11 @@ def stats_handler(report_date: str) -> str:
         process_tx_for_stats(tx, rd, stats, category_expenses)
 
     diff = stats["month_income"] - stats["month_expenses"]
-    profit_loss_str = f"loss amounted to {-diff:.2f}" if diff < 0 else f"profit amounted to {diff:.2f}"
+    profit_loss_str = (
+        f"loss amounted to {-diff:.2f}"
+        if diff < 0
+        else f"profit amounted to {diff:.2f}"
+    )
 
     lines = [
         f"Your statistics as of {report_date}:",
