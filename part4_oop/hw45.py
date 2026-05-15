@@ -109,9 +109,13 @@ class LFUPolicy(Policy[K]):
         return bool(self._key_counter)
 
     def _find_min_key(self) -> K | None:
+        items = list(self._key_counter.items())
+        if len(items) > 1:
+            items = items[:-1]
+
         min_key = None
         min_val = FIRST_INDEX
-        for key, count_val in self._key_counter.items():
+        for key, count_val in items:
             if min_key is None or count_val < min_val:
                 min_key = key
                 min_val = count_val
@@ -159,7 +163,7 @@ class CachedProperty[V]:
         cache_obj = instance.cache
         if cache_obj.exists(self._key):
             cached_value = cache_obj.get(self._key)
-            return cast(V, cached_value)
+            return cast("V", cached_value)
         computed_val = self._func(instance)
         cache_obj.set(self._key, computed_val)
         return computed_val
