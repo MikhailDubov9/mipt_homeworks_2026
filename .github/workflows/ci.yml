@@ -18,8 +18,12 @@ on:
         type: boolean
   push:
     branches: [main, master]
+    paths-ignore:
+      - 'final_project/**'
   pull_request:
     branches: [main, master]
+    paths-ignore:
+      - 'final_project/**'
 
 jobs:
   detect-changes:
